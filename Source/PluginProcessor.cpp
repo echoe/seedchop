@@ -323,23 +323,25 @@ void SeedChopAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
                 continue;
 
             juce::MemoryBlock mb;
-            auto stream = std::make_unique<juce::MemoryOutputStream> (mb, false);
+            auto* mos = new juce::MemoryOutputStream (mb, false);
             juce::WavAudioFormat wavFormat;
             std::unique_ptr<juce::AudioFormatWriter> writer (
-                wavFormat.createWriterFor (std::move (stream),
-                    juce::AudioFormatWriterOptions()
-                        .withSampleRate (slot.sourceSampleRate)
-                        .withNumChannels (slot.buffer->getNumChannels())
-                        .withBitsPerSample (16)));
+                wavFormat.createWriterFor (mos, slot.sourceSampleRate,
+                    juce::AudioChannelSet::canonicalChannelSet (slot.buffer->getNumChannels()),
+                    16, {}, 0));
             if (writer != nullptr)
             {
                 writer->writeFromAudioSampleBuffer (*slot.buffer, 0, slot.buffer->getNumSamples());
-                writer.reset(); // flushes; mb now holds the WAV bytes
+                writer.reset(); // flushes and deletes mos; mb now holds the WAV bytes
 
                 auto* sampleXml = samplesXml->createNewChildElement ("SAMPLE");
                 sampleXml->setAttribute ("slot", i);
                 sampleXml->setAttribute ("name", slot.name);
                 sampleXml->addTextElement (juce::Base64::toBase64 (mb.getData(), mb.getSize()));
+            }
+            else
+            {
+                delete mos;
             }
         }
     }
