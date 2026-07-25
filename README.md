@@ -1,5 +1,7 @@
 # SeedChop
 
+<img src=https://raw.githubusercontent.com/echoe/seedchop/refs/heads/main/picture.png width="450" height="360" />
+
 A seeded, slot-based chopper/tremolo/muter. Put one instance on each of N
 sounds, give them the same **Seed** / **Chop Multiplier** / **Slice Length** /
 **Length Randomness**, and different **My Slot** values — only one sound
