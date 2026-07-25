@@ -1,7 +1,7 @@
 #include "PluginEditor.h"
 
 SeedChopAudioProcessorEditor::SeedChopAudioProcessorEditor (SeedChopAudioProcessor& p)
-    : AudioProcessorEditor (&p), processor (p), timeline (p)
+    : AudioProcessorEditor (&p), audioProcessor (p), timeline (p)
 {
     auto& modeRow = addComboRow ("sourceMode", "Source");
     sourceModeCombo = modeRow.combo.get();
@@ -16,6 +16,7 @@ SeedChopAudioProcessorEditor::SeedChopAudioProcessorEditor (SeedChopAudioProcess
     addSliderRow ("skipProbability", "Skip Probability (%)");
     addSliderRow ("fadeTimeMs", "Fade Time (ms)");
     addComboRow  ("fadeShape", "Fade Shape");
+    addSliderRow ("dryWet", "Dry/Wet (%)");
 
     addAndMakeVisible (timeline);
 
@@ -39,7 +40,7 @@ SeedChopAudioProcessorEditor::ParamRow& SeedChopAudioProcessorEditor::addSliderR
     addAndMakeVisible (*row->slider);
 
     row->sliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
-        processor.apvts, paramID, *row->slider);
+        audioProcessor.apvts, paramID, *row->slider);
 
     paramRows.push_back (std::move (row));
     return *paramRows.back();
@@ -54,7 +55,7 @@ SeedChopAudioProcessorEditor::ParamRow& SeedChopAudioProcessorEditor::addComboRo
     addAndMakeVisible (row->label);
 
     row->combo = std::make_unique<juce::ComboBox>();
-    if (auto* choiceParam = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (paramID)))
+    if (auto* choiceParam = dynamic_cast<juce::AudioParameterChoice*> (audioProcessor.apvts.getParameter (paramID)))
     {
         int idx = 1;
         for (auto& choice : choiceParam->choices)
@@ -63,7 +64,7 @@ SeedChopAudioProcessorEditor::ParamRow& SeedChopAudioProcessorEditor::addComboRo
     addAndMakeVisible (*row->combo);
 
     row->comboAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
-        processor.apvts, paramID, *row->combo);
+        audioProcessor.apvts, paramID, *row->combo);
 
     paramRows.push_back (std::move (row));
     return *paramRows.back();
@@ -87,7 +88,7 @@ void SeedChopAudioProcessorEditor::buildSampleRows()
 
         row->clearButton.onClick = [this, i]
         {
-            processor.clearSample (i);
+            audioProcessor.clearSample (i);
             refreshSampleRowLabels();
         };
         addAndMakeVisible (row->clearButton);
@@ -109,7 +110,7 @@ void SeedChopAudioProcessorEditor::openChooserForSlot (int slotIndex)
     {
         auto file = fc.getResult();
         if (file.existsAsFile())
-            processor.loadSample (slotIndex, file);
+            audioProcessor.loadSample (slotIndex, file);
         refreshSampleRowLabels();
     });
 }
@@ -119,9 +120,9 @@ void SeedChopAudioProcessorEditor::refreshSampleRowLabels()
     for (int i = 0; i < SeedChopAudioProcessor::kMaxSamples; ++i)
     {
         auto& row = *sampleRows[(size_t) i];
-        if (processor.isSampleLoaded (i))
+        if (audioProcessor.isSampleLoaded (i))
         {
-            row.nameLabel.setText (processor.getSampleName (i), juce::dontSendNotification);
+            row.nameLabel.setText (audioProcessor.getSampleName (i), juce::dontSendNotification);
             row.nameLabel.setColour (juce::Label::textColourId, juce::Colours::white);
         }
         else

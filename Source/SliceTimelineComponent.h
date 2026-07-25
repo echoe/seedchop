@@ -90,7 +90,7 @@ public:
             if (label.isEmpty())
                 label = "Slot " + juce::String (i);
 
-            int textWidth = juce::jmin (120, g.getCurrentFont().getStringWidth (label) + 4);
+            int textWidth = juce::jmin (120, (int) juce::GlyphArrangement::getStringWidth (g.getCurrentFont(), label) + 4);
             g.setColour (juce::Colours::lightgrey);
             g.drawText (label, x, legendArea.getY(), textWidth, legendArea.getHeight(),
                         juce::Justification::centredLeft, true);

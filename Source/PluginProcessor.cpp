@@ -76,6 +76,7 @@ SeedChopAudioProcessor::SeedChopAudioProcessor()
     fadeTimeParam     = apvts.getRawParameterValue ("fadeTimeMs");
     fadeShapeParam    = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("fadeShape"));
     sourceModeParam   = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("sourceMode"));
+    dryWetParam       = apvts.getRawParameterValue ("dryWet");
 
     formatManager.registerBasicFormats();
 }
@@ -104,32 +105,42 @@ juce::AudioProcessorValueTreeState::ParameterLayout SeedChopAudioProcessor::crea
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "sliceLengthMs", 1 }, "Slice Length",
-        juce::NormalisableRange<float> (20.0f, 4000.0f, 1.0f, 0.4f), 500.0f, "ms"));
+        juce::NormalisableRange<float> (20.0f, 4000.0f, 1.0f, 0.4f), 500.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("ms")));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "lengthRandom", 1 }, "Length Randomness",
-        juce::NormalisableRange<float> (0.0f, 100.0f), 0.0f, "%"));
+        juce::NormalisableRange<float> (0.0f, 100.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "skipProbability", 1 }, "Skip Probability",
-        juce::NormalisableRange<float> (0.0f, 100.0f), 0.0f, "%"));
+        juce::NormalisableRange<float> (0.0f, 100.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "fadeTimeMs", 1 }, "Fade Time",
-        juce::NormalisableRange<float> (0.0f, 500.0f), 0.0f, "ms"));
+        juce::NormalisableRange<float> (0.0f, 500.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("ms")));
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "fadeShape", 1 }, "Fade Shape",
         juce::StringArray { "Linear", "Sine" }, 0));
 
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "dryWet", 1 }, "Dry/Wet",
+        juce::NormalisableRange<float> (0.0f, 100.0f), 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+
     return { params.begin(), params.end() };
 }
 
-void SeedChopAudioProcessor::prepareToPlay (double newSampleRate, int)
+void SeedChopAudioProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
 {
     sampleRate = newSampleRate;
     samplesElapsedFallback = 0;
     engine.reset();
+    dryBuffer.setSize (getTotalNumInputChannels(), samplesPerBlock);
 }
 
 int SeedChopAudioProcessor::getEffectiveNumSlots() const
@@ -184,6 +195,11 @@ void SeedChopAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     const double fadeTimeSec = juce::jmax (0.0, (double) fadeTimeParam->load() / 1000.0);
     const bool sineFade = fadeShapeParam->getIndex() == 1;
     const bool sampleMode = sourceModeParam->getIndex() == 1;
+    const float wetMix = juce::jlimit (0.0f, 1.0f, dryWetParam->load() / 100.0f);
+    const bool needsDryBlend = wetMix < 1.0f;
+
+    if (needsDryBlend)
+        dryBuffer.makeCopyOf (buffer, true);
 
     if (sampleMode)
     {
@@ -220,6 +236,19 @@ void SeedChopAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
                              : 0.0f;
             for (int ch = 0; ch < numChannels; ++ch)
                 buffer.getWritePointer (ch)[s] *= gain;
+        }
+    }
+
+    if (needsDryBlend)
+    {
+        const float dryMix = 1.0f - wetMix;
+        const int numChannels = buffer.getNumChannels();
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            auto* wet = buffer.getWritePointer (ch);
+            auto* dry = dryBuffer.getReadPointer (ch);
+            for (int s = 0; s < numSamples; ++s)
+                wet[s] = wet[s] * wetMix + dry[s] * dryMix;
         }
     }
 
@@ -294,24 +323,23 @@ void SeedChopAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
                 continue;
 
             juce::MemoryBlock mb;
-            auto* mos = new juce::MemoryOutputStream (mb, false);
+            auto stream = std::make_unique<juce::MemoryOutputStream> (mb, false);
             juce::WavAudioFormat wavFormat;
             std::unique_ptr<juce::AudioFormatWriter> writer (
-                wavFormat.createWriterFor (mos, slot.sourceSampleRate,
-                                            (unsigned int) slot.buffer->getNumChannels(), 16, {}, 0));
+                wavFormat.createWriterFor (std::move (stream),
+                    juce::AudioFormatWriterOptions()
+                        .withSampleRate (slot.sourceSampleRate)
+                        .withNumChannels (slot.buffer->getNumChannels())
+                        .withBitsPerSample (16)));
             if (writer != nullptr)
             {
                 writer->writeFromAudioSampleBuffer (*slot.buffer, 0, slot.buffer->getNumSamples());
-                writer.reset(); // flushes and deletes mos; mb now holds the WAV bytes
+                writer.reset(); // flushes; mb now holds the WAV bytes
 
                 auto* sampleXml = samplesXml->createNewChildElement ("SAMPLE");
                 sampleXml->setAttribute ("slot", i);
                 sampleXml->setAttribute ("name", slot.name);
                 sampleXml->addTextElement (juce::Base64::toBase64 (mb.getData(), mb.getSize()));
-            }
-            else
-            {
-                delete mos;
             }
         }
     }

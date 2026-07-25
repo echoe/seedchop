@@ -62,6 +62,7 @@ private:
     chop::SliceEngine engine;
     double sampleRate = 44100.0;
     juce::int64 samplesElapsedFallback = 0;
+    juce::AudioBuffer<float> dryBuffer;
 
     std::atomic<float>* seedParam        = nullptr;
     juce::AudioParameterChoice* multiplierParam = nullptr;
@@ -72,6 +73,7 @@ private:
     std::atomic<float>* fadeTimeParam    = nullptr;
     juce::AudioParameterChoice* fadeShapeParam  = nullptr;
     juce::AudioParameterChoice* sourceModeParam = nullptr;
+    std::atomic<float>* dryWetParam = nullptr;
 
     struct SampleSlot
     {

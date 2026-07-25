@@ -17,7 +17,7 @@ public:
 private:
     void timerCallback() override; // refreshes sample-slot labels/enablement
 
-    SeedChopAudioProcessor& processor;
+    SeedChopAudioProcessor& audioProcessor;
 
     // --- generic parameter rows (slider or combo) ---
     struct ParamRow
