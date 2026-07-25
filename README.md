@@ -2,8 +2,7 @@
 
 <img src=https://raw.githubusercontent.com/echoe/seedchop/refs/heads/main/picture.png width="450" height="360" />
 
-A seeded, slot-based chopper/tremolo/muter. Put one instance on each of N
-sounds, give them the same **Seed** / **Chop Multiplier** / **Slice Length** /
+An idea from https://freesound.org/people/Sadiquecat/ that I was able to just turn into something! It's a seeded, slot-based chopper/tremolo/muter. Put one instance on each of a number of sounds, give them the same **Seed** / **Chop Multiplier** / **Slice Length** /
 **Length Randomness**, and different **My Slot** values — only one sound
 plays at any moment, cycling deterministically between them.
 
@@ -61,8 +60,9 @@ outlined.
 - **Skip Probability** — chance that, on a slice that belongs to your slot,
   it rests anyway (true silence that turn, not handed to another instance).
 - **Fade Time / Fade Shape** — edge crossfade at slice boundaries (0 = hard
-  cut, which is your main use case; Linear or Sine ramps for funkier
+  cut; Linear or Sine ramps for funkier
   tremolo-style transitions).
+- **Wet / Dry ** - sets the wet or dry amount of the plugin per instance.
 
 ## Workflow
 
@@ -93,7 +93,3 @@ outlined.
 cmake -B build -G Ninja
 cmake --build build
 ```
-
-Swap the `FetchContent_Declare(JUCE ...)` block in CMakeLists.txt for
-`add_subdirectory(../path/to/JUCE JUCE)` if you want to point it at the
-same JUCE checkout your other plugins use.
